@@ -1,26 +1,142 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"log"
 
 	"github.com/cli/go-gh"
+	graphql "github.com/cli/shurcooL-graphql"
 )
 
 func main() {
-	fmt.Println("hi world, this is the gh-org-transfer-audit extension!")
-	client, err := gh.RESTClient(nil)
-	if err != nil {
-		fmt.Println(err)
-		return
+	var organization string
+	var enterprise string
+
+	flag.StringVar(&organization, "organization", "dylanrinkertestorg3", "organization")
+	flag.StringVar(&enterprise, "enterprise", "mr-magoriums-wunderbar-emporium", "enterprise")
+
+	flag.Parse()
+
+	orgQuery(organization)
+	entQuery, error := enterpriseQuery(enterprise)
+
+	if error != nil {
+		log.Fatal(error)
 	}
-	response := struct {Login string}{}
-	err = client.Get("user", &response)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Printf("running as %s\n", response.Login)
+
+	fmt.Println(entQuery.Enterprise.OwnerInfo)
+
 }
 
-// For more examples of using go-gh, see:
-// https://github.com/cli/go-gh/blob/trunk/example_gh_test.go
+func orgQuery(org string) {
+	fmt.Println("Organization: ", org)
+
+	client, err := gh.GQLClient(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var query struct {
+		Organization struct {
+			MembersWithRole struct {
+				Edges []struct {
+					Node struct {
+						Id    string
+						Login string
+					}
+				}
+			} `graphql:"membersWithRole(first: $first)"`
+		} `graphql:"organization(login: $login)"`
+	}
+
+	variables := map[string]interface{}{
+		"first": graphql.Int(10),
+		"login": graphql.String(org),
+	}
+
+	err = client.Query("OrgMembers", &query, variables)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(query)
+}
+
+type OrganinizationQuery struct {
+	Organization struct {
+    IpAllowListEnabledSetting
+    IpAllowListEntries {
+      Edges {
+        Node {
+          AllowListValue
+        }
+      }
+    } `graphql:"ipAllowListEntries(first: $first)"`
+    IpAllowListForInstalledAppsEnabledSetting
+    MembersCanForkPrivateRepositories
+    RequiresTwoFactorAuthentication
+    SamlIdentityProvider {
+      Id
+    }
+  } `graphql:"organization(login: $login)"`
+
+
+// create a type of EnterpriseQuery
+
+type EnterpriseQuery struct {
+	Enterprise struct {
+		OwnerInfo struct {
+			AllowPrivateRepositoryForkingSetting            string
+			AllowPrivateRepositoryForkingSettingPolicyValue string
+			DefaultRepositoryPermissionSetting              string
+			IpAllowListEnabledSetting                       string
+			IpAllowListEntries                              struct {
+				Edges struct {
+					Node struct {
+						AllowListValue string
+					}
+				}
+			} `graphql:"ipAllowListEntries(first: $first)"`
+			IpAllowListForInstalledAppsEnabledSetting     string
+			MembersCanChangeRepositoryVisibilitySetting   string
+			MembersCanCreateRepositoriesSetting           string
+			MembersCanDeleteIssuesSetting                 string
+			MembersCanDeleteRepositoriesSetting           string
+			MembersCanInviteCollaboratorsSetting          string
+			MembersCanMakePurchasesSetting                string
+			MembersCanUpdateProtectedBranchesSetting      string
+			MembersCanViewDependencyInsightsSetting       string
+			NotificationDeliveryRestrictionEnabledSetting string
+			OrganizationProjectsSetting                   string
+			RepositoryProjectsSetting                     string
+			SamlIdentityProvider                          struct {
+				Id string
+			}
+			TeamDiscussionsSetting   string
+			TwoFactorRequiredSetting string
+		}
+	} `graphql:"enterprise(slug: $slug)"`
+}
+
+func enterpriseQuery(ent string) (*EnterpriseQuery, error) {
+	fmt.Println("Enterprise: ", ent)
+
+	client, err := gh.GQLClient(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	query := new(EnterpriseQuery)
+
+	variables := map[string]interface{}{
+		"slug":  graphql.String(ent),
+		"first": graphql.Int(10),
+	}
+
+	err = client.Query("Enterprise", &query, variables)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(query)
+
+	return query, err
+}
