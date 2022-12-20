@@ -18,7 +18,7 @@ func main() {
 
 	flag.Parse()
 
-	orgQuery(organization)
+	// orgQuery(organization)
 	entQuery, error := enterpriseQuery(enterprise)
 
 	if error != nil {
@@ -27,58 +27,90 @@ func main() {
 
 	fmt.Println(entQuery.Enterprise.OwnerInfo)
 
+	orgQuery, error := organinizationQuery(organization)
+
+	if error != nil {
+		log.Fatal(error)
+	}
+
+	fmt.Println(orgQuery.Organization)
+
 }
 
-func orgQuery(org string) {
+// func orgQuery(org string) {
+// 	fmt.Println("Organization: ", org)
+
+// 	client, err := gh.GQLClient(nil)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	var query struct {
+// 		Organization struct {
+// 			MembersWithRole struct {
+// 				Edges []struct {
+// 					Node struct {
+// 						Id    string
+// 						Login string
+// 					}
+// 				}
+// 			} `graphql:"membersWithRole(first: $first)"`
+// 		} `graphql:"organization(login: $login)"`
+// 	}
+
+// 	variables := map[string]interface{}{
+// 		"first": graphql.Int(10),
+// 		"login": graphql.String(org),
+// 	}
+
+// 	err = client.Query("OrgMembers", &query, variables)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	fmt.Println(query)
+// }
+
+type OrganinizationQuery struct {
+	Organization struct {
+		IpAllowListEnabledSetting string
+		IpAllowListEntries        struct {
+			Edges struct {
+				Node struct {
+					AllowListValue string
+				}
+			}
+		} `graphql:"ipAllowListEntries(first: $first)"`
+		IpAllowListForInstalledAppsEnabledSetting string
+		MembersCanForkPrivateRepositories         bool
+		RequiresTwoFactorAuthentication           bool
+		SamlIdentityProvider                      struct {
+			Id string
+		}
+	} `graphql:"organization(login: $login)"`
+}
+
+func organinizationQuery(org string) (*OrganinizationQuery, error) {
 	fmt.Println("Organization: ", org)
 
 	client, err := gh.GQLClient(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var query struct {
-		Organization struct {
-			MembersWithRole struct {
-				Edges []struct {
-					Node struct {
-						Id    string
-						Login string
-					}
-				}
-			} `graphql:"membersWithRole(first: $first)"`
-		} `graphql:"organization(login: $login)"`
-	}
+
+	query := new(OrganinizationQuery)
 
 	variables := map[string]interface{}{
-		"first": graphql.Int(10),
 		"login": graphql.String(org),
+		"first": graphql.Int(10),
 	}
 
-	err = client.Query("OrgMembers", &query, variables)
+	err = client.Query("Organization", &query, variables)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(query)
+
+	return query, err
 }
-
-type OrganinizationQuery struct {
-	Organization struct {
-    IpAllowListEnabledSetting
-    IpAllowListEntries {
-      Edges {
-        Node {
-          AllowListValue
-        }
-      }
-    } `graphql:"ipAllowListEntries(first: $first)"`
-    IpAllowListForInstalledAppsEnabledSetting
-    MembersCanForkPrivateRepositories
-    RequiresTwoFactorAuthentication
-    SamlIdentityProvider {
-      Id
-    }
-  } `graphql:"organization(login: $login)"`
-
 
 // create a type of EnterpriseQuery
 
@@ -136,7 +168,7 @@ func enterpriseQuery(ent string) (*EnterpriseQuery, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(query)
+	// fmt.Println(query)
 
 	return query, err
 }
