@@ -219,6 +219,12 @@ func comparePrivateRepositoryForking(compare *Compare, org *OrganinizationQuery,
 func compareTwoFactorAuthentication(compare *Compare, org *OrganinizationQuery, ent *EnterpriseQuery) *Compare {
 	fmt.Println("Comparing Two Factor Authentication Policies")
 
+	if ent.Enterprise.OwnerInfo.TwoFactorRequiredSetting == "" {
+		compare.TwoFactorAuthenticationSetting.Comment = "There is no Enterprise policy."
+		compare.TwoFactorAuthenticationSetting.Status = "✓"
+		return compare
+	}
+
 	if ent.Enterprise.OwnerInfo.TwoFactorRequiredSetting == "NO_POLICY" {
 		compare.TwoFactorAuthenticationSetting.Comment = "There is no Enterprise policy."
 		compare.TwoFactorAuthenticationSetting.Status = "✓"
@@ -267,6 +273,8 @@ func compareSamlIdentityProvider(compare *Compare, org *OrganinizationQuery, ent
 			}
 		}
 
+		return compare
+	}
 	return compare
 }
 
@@ -290,4 +298,3 @@ func compareSamlIdentityProvider(compare *Compare, org *OrganinizationQuery, ent
 // 	}
 // 	csvWriter := csv.NewWriter(csvFile)
 // 	return csvWriter
-// }
