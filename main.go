@@ -41,6 +41,8 @@ func main() {
 
 	// createCSV(orgQuery, entQuery, compare(orgQuery, entQuery))
 
+	CreatePDF()
+
 }
 
 type OrganinizationQuery struct {
@@ -193,11 +195,11 @@ func compare(org *OrganinizationQuery, ent *EnterpriseQuery) *Compare {
 
 	fmt.Println(`Compare 1:`, compare)
 
-	compare = compareTwoFactorAuthentication(compare, org, ent)
+	compare = compareSamlIdentityProvider(compare, org, ent)
 
 	fmt.Println(`Compare 2:`, compare)
 
-	compare = compareSamlIdentityProvider(compare, org, ent)
+	compare = compareTwoFactorAuthentication(compare, org, ent)
 
 	fmt.Println(`Compare 3:`, compare)
 
@@ -261,11 +263,14 @@ func compareSamlIdentityProvider(compare *Compare, org *OrganinizationQuery, ent
 
 		if org.Organization.SamlIdentityProvider.Id != "" {
 			if org.Organization.SamlIdentityProvider.Id != ent.Enterprise.OwnerInfo.SamlIdentityProvider.Id {
-				compare.TwoFactorAuthenticationSetting.Comment = "SAML Single Sign On is enabled at the Enterprise level and the Organization level. The Enterprise SAML Single Sign On provider will apply to the Organization."
+				compare.TwoFactorAuthenticationSetting.Comment = "SAML Single Sign On is enabled at the Enterprise level and the Organization level. The Enterprise SAML Single Sign On provider will override the Organization's SAML Single Sign On."
 				compare.TwoFactorAuthenticationSetting.Status = "✗"
 				return compare
 			}
 		}
+
+		return compare
+	}
 
 	return compare
 }
