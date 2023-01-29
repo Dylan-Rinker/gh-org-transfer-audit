@@ -46,7 +46,7 @@ func cli() error {
 
 		organization = repo.Owner()
 
-		orgPolicies, err := getOrganizationPolicies(organization)
+		orgPolicies, err := getOrganizationGQLPolicies(organization)
 
 		if err != nil {
 			return fmt.Errorf("the owner of the current repository is not an organization %w", err)
@@ -70,118 +70,48 @@ func cli() error {
 
 		fmt.Println(entPolicies.Enterprise)
 
-		// have to actually get isTerminal
-		tp := tableprinter.New(os.Stdout, true, 100)
-
-		tp.AddField("Policy Name")
-		tp.AddField("Policy Value")
-		tp.EndRow()
-		tp.AddField("AllowPrivateRepositoryForkingSettingPolicyValue")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.AllowPrivateRepositoryForkingSetting)
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.AllowPrivateRepositoryForkingSettingPolicyValue)
-		tp.EndRow()
-		tp.AddField("DefaultRepositoryPermissionSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.DefaultRepositoryPermissionSetting)
-		tp.EndRow()
-		tp.AddField("IpAllowListEnabledSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.IpAllowListEnabledSetting)
-		tp.EndRow()
-		tp.AddField("IpAllowListEntries")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.IpAllowListEntries.Edges.Node.AllowListValue)
-		tp.EndRow()
-		tp.AddField("IpAllowListForInstalledAppsEnabledSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.IpAllowListForInstalledAppsEnabledSetting)
-		tp.EndRow()
-		tp.AddField("MembersCanChangeRepositoryVisibilitySetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanChangeRepositoryVisibilitySetting)
-		tp.EndRow()
-		tp.AddField("MembersCanCreateRepositoriesSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanCreateRepositoriesSetting)
-		tp.EndRow()
-		tp.AddField("MembersCanDeleteIssuesSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanDeleteIssuesSetting)
-		tp.EndRow()
-		tp.AddField("MembersCanDeleteRepositoriesSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanDeleteRepositoriesSetting)
-		tp.EndRow()
-		tp.AddField("MembersCanInviteCollaboratorsSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanInviteCollaboratorsSetting)
-		tp.EndRow()
-		tp.AddField("MembersCanMakePurchasesSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanMakePurchasesSetting)
-		tp.EndRow()
-		tp.AddField("MembersCanUpdateProtectedBranchesSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanUpdateProtectedBranchesSetting)
-		tp.EndRow()
-		tp.AddField("MembersCanViewDependencyInsightsSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanViewDependencyInsightsSetting)
-		tp.EndRow()
-		tp.AddField("OrganizationProjectsSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.OrganizationProjectsSetting)
-		tp.EndRow()
-		tp.AddField("RepositoryProjectsSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.RepositoryProjectsSetting)
-		tp.EndRow()
-		tp.AddField("SamlIdentityProvider")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.SamlIdentityProvider.Id)
-		tp.EndRow()
-		tp.AddField("TeamDiscussionsSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.TeamDiscussionsSetting)
-		tp.EndRow()
-		tp.AddField("TwoFactorRequiredSetting")
-		tp.AddField(entPolicies.Enterprise.OwnerInfo.TwoFactorRequiredSetting)
-		tp.EndRow()
-
-		tp.Render()
+		tablePrintEntPolicies(*entPolicies)
 
 	}
 
-	var orgPolicies *OrganizationPolicies
+	var orgGQLPolicies *OrganizationGQLPolicies
+	var orgRESTPolicies *OrganizationRESTPolicies
 
-	// if only enterprise is provided, get the enterprise policies
+	// if only organization is provided, get the organization policies
 	if organization != "" && enterprise == "" {
 		fmt.Println("No enterprise provided. Retrieving policies for organization.")
-		// Get organization policies
-		orgPolicies, error = getOrganizationPolicies(organization)
+
+		// Get organization GraphQL policies
+		orgGQLPolicies, error = getOrganizationGQLPolicies(organization)
 
 		if error != nil {
 			log.Fatal(error)
 		}
 
-		// have to actually get isTerminal
-		tp := tableprinter.New(os.Stdout, true, 100)
+		fmt.Println("Organization GQL Policies", orgGQLPolicies)
 
-		tp.AddField("Policy Name")
-		tp.AddField("Policy Value")
-		tp.EndRow()
-		tp.AddField("IpAllowListEnabledSetting")
-		tp.AddField(orgPolicies.Organization.IpAllowListEnabledSetting, tableprinter.WithColor(red))
-		tp.EndRow()
-		tp.AddField("IpAllowListEntries")
-		tp.AddField(orgPolicies.Organization.IpAllowListEntries.Edges.Node.AllowListValue, tableprinter.WithColor(red))
-		tp.EndRow()
-		tp.AddField("IpAllowListForInstalledAppsEnabledSetting")
-		tp.AddField(orgPolicies.Organization.IpAllowListForInstalledAppsEnabledSetting)
-		tp.EndRow()
-		tp.AddField("MembersCanForkPrivateRepositories")
-		tp.AddField(strconv.FormatBool(orgPolicies.Organization.MembersCanForkPrivateRepositories))
-		tp.EndRow()
-		tp.AddField("RequiresTwoFactorAuthentication")
-		tp.AddField(strconv.FormatBool(orgPolicies.Organization.RequiresTwoFactorAuthentication))
-		tp.EndRow()
-		tp.AddField("SamlIdentityProvider")
-		tp.AddField(orgPolicies.Organization.SamlIdentityProvider.Id)
-		tp.EndRow()
+		orgRESTPolicies, error = getOrganizationRESTPolicies(organization)
 
-		tp.Render()
+		if error != nil {
+			log.Fatal(error)
+		}
 
+		fmt.Println("Organization REST Policies", orgRESTPolicies)
+
+		// Create a new orgPolicies object with the REST and GQL policies
+		orgPolicies := OrganizationPolicies{
+			GQL:  *orgGQLPolicies,
+			REST: *orgRESTPolicies,
+		}
+
+		tablePrintOrgPolicies(orgPolicies)
 	}
 
 	// if both are provided, get the both policies and compare them
 	if organization != "" && enterprise != "" {
 		fmt.Println("Both enterprise and organization provided. Retrieving policies for both and comparing them.")
 		// Get organization policies
-		orgPolicies, error = getOrganizationPolicies(organization)
+		orgGQLPolicies, error = getOrganizationGQLPolicies(organization)
 
 		if error != nil {
 			log.Fatal(error)
@@ -194,7 +124,7 @@ func cli() error {
 			log.Fatal(error)
 		}
 
-		comparison := comparePolicies(orgPolicies, entPolicies)
+		comparison := comparePolicies(orgGQLPolicies, entPolicies)
 
 		fmt.Println(comparison)
 	}
@@ -203,12 +133,153 @@ func cli() error {
 	return nil
 }
 
+func tablePrintOrgPolicies(orgPolicies OrganizationPolicies) {
+	// have to actually get isTerminal
+	tp := tableprinter.New(os.Stdout, true, 100)
+
+	tp.AddField("Policy Name", tableprinter.WithColor(bold))
+	tp.AddField("Policy Value")
+	tp.EndRow()
+	tp.AddField("HasOrganizationProjects")
+	tp.AddField(strconv.FormatBool(orgPolicies.REST.Has_organization_projects))
+	tp.EndRow()
+	tp.AddField("HasRepositoryProjects")
+	tp.AddField(strconv.FormatBool(orgPolicies.REST.Has_repository_projects))
+	tp.EndRow()
+	tp.AddField("DefaultRepositoryPermission")
+	tp.AddField(orgPolicies.REST.Default_repository_permission)
+	tp.EndRow()
+	tp.AddField("MembersCanCreateRepositories")
+	tp.AddField(strconv.FormatBool(orgPolicies.REST.Members_can_create_repositories))
+	tp.EndRow()
+	tp.AddField("TwoFactorRequirementEnabled")
+	tp.AddField(strconv.FormatBool(orgPolicies.REST.Two_factor_requirement_enabled))
+	tp.EndRow()
+	tp.AddField("MembersAllowedRepositoryCreationType")
+	tp.AddField(orgPolicies.REST.Members_allowed_repository_creation_type)
+	tp.EndRow()
+	tp.AddField("MembersCanCreatePublicRepositories")
+	tp.AddField(strconv.FormatBool(orgPolicies.REST.Members_can_create_public_repositories))
+	tp.EndRow()
+	tp.AddField("MembersCanCreatePrivateRepositories")
+	tp.AddField(strconv.FormatBool(orgPolicies.REST.Members_can_create_private_repositories))
+	tp.EndRow()
+	tp.AddField("MembersCanCreateInternalRepositories")
+	tp.AddField(strconv.FormatBool(orgPolicies.REST.Members_can_create_internal_repositories))
+	tp.EndRow()
+	tp.AddField("MembersCanCreatePages")
+	tp.AddField(strconv.FormatBool(orgPolicies.REST.Members_can_create_pages))
+	tp.EndRow()
+	tp.AddField("MembersCanForkPrivateRepositoriesREST")
+	tp.AddField(strconv.FormatBool(orgPolicies.REST.Members_can_fork_private_repositories))
+	tp.EndRow()
+	tp.AddField("IpAllowListEnabledSetting")
+	tp.AddField(orgPolicies.GQL.Organization.IpAllowListEnabledSetting, tableprinter.WithColor(red))
+	tp.EndRow()
+	tp.AddField("IpAllowListEntries")
+	tp.AddField(orgPolicies.GQL.Organization.IpAllowListEntries.Edges.Node.AllowListValue, tableprinter.WithColor(red))
+	tp.EndRow()
+	tp.AddField("IpAllowListForInstalledAppsEnabledSetting")
+	tp.AddField(orgPolicies.GQL.Organization.IpAllowListForInstalledAppsEnabledSetting, tableprinter.WithColor(green))
+	tp.EndRow()
+	tp.AddField("MembersCanForkPrivateRepositories")
+	tp.AddField(strconv.FormatBool(orgPolicies.GQL.Organization.MembersCanForkPrivateRepositories))
+	tp.EndRow()
+	tp.AddField("RequiresTwoFactorAuthentication")
+	tp.AddField(strconv.FormatBool(orgPolicies.GQL.Organization.RequiresTwoFactorAuthentication))
+	tp.EndRow()
+	tp.AddField("SamlIdentityProvider")
+	tp.AddField(orgPolicies.GQL.Organization.SamlIdentityProvider.Id)
+	tp.EndRow()
+
+	tp.Render()
+}
+
+func tablePrintEntPolicies(entPolicies EnterprisePolicies) {
+	// have to actually get isTerminal
+	tp := tableprinter.New(os.Stdout, true, 100)
+
+	tp.AddField("Policy Name")
+	tp.AddField("Policy Value")
+	tp.EndRow()
+	tp.AddField("AllowPrivateRepositoryForkingSettingPolicyValue")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.AllowPrivateRepositoryForkingSetting)
+	// tp.AddField(entPolicies.Enterprise.OwnerInfo.AllowPrivateRepositoryForkingSettingPolicyValue)
+	tp.EndRow()
+	tp.AddField("DefaultRepositoryPermissionSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.DefaultRepositoryPermissionSetting)
+	tp.EndRow()
+	tp.AddField("IpAllowListEnabledSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.IpAllowListEnabledSetting)
+	tp.EndRow()
+	tp.AddField("IpAllowListEntries")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.IpAllowListEntries.Edges.Node.AllowListValue)
+	tp.EndRow()
+	tp.AddField("IpAllowListForInstalledAppsEnabledSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.IpAllowListForInstalledAppsEnabledSetting)
+	tp.EndRow()
+	tp.AddField("MembersCanChangeRepositoryVisibilitySetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanChangeRepositoryVisibilitySetting)
+	tp.EndRow()
+	tp.AddField("MembersCanCreateRepositoriesSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanCreateRepositoriesSetting)
+	tp.EndRow()
+	tp.AddField("MembersCanDeleteIssuesSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanDeleteIssuesSetting)
+	tp.EndRow()
+	tp.AddField("MembersCanDeleteRepositoriesSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanDeleteRepositoriesSetting)
+	tp.EndRow()
+	tp.AddField("MembersCanInviteCollaboratorsSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanInviteCollaboratorsSetting)
+	tp.EndRow()
+	tp.AddField("MembersCanMakePurchasesSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanMakePurchasesSetting)
+	tp.EndRow()
+	tp.AddField("MembersCanUpdateProtectedBranchesSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanUpdateProtectedBranchesSetting)
+	tp.EndRow()
+	tp.AddField("MembersCanViewDependencyInsightsSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanViewDependencyInsightsSetting)
+	tp.EndRow()
+	tp.AddField("OrganizationProjectsSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.OrganizationProjectsSetting)
+	tp.EndRow()
+	tp.AddField("RepositoryProjectsSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.RepositoryProjectsSetting)
+	tp.EndRow()
+	tp.AddField("SamlIdentityProvider")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.SamlIdentityProvider.Id)
+	tp.EndRow()
+	tp.AddField("TeamDiscussionsSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.TeamDiscussionsSetting)
+	tp.EndRow()
+	tp.AddField("TwoFactorRequiredSetting")
+	tp.AddField(entPolicies.Enterprise.OwnerInfo.TwoFactorRequiredSetting)
+	tp.EndRow()
+
+	tp.Render()
+}
+
 // function that takes in a string and returns that string color red
 func red(s string) string {
 	return fmt.Sprintf("\033[31m%s\033[0m", s)
 }
 
+func green(s string) string {
+	return fmt.Sprintf("\033[32m%s\033[0m", s)
+}
+
+func bold(s string) string {
+	return fmt.Sprintf("\u001b[1m%s\u001b[0m", s)
+}
+
 type OrganizationPolicies struct {
+	GQL  OrganizationGQLPolicies
+	REST OrganizationRESTPolicies
+}
+
+type OrganizationGQLPolicies struct {
 	Organization struct {
 		IpAllowListEnabledSetting string
 		IpAllowListEntries        struct {
@@ -227,7 +298,42 @@ type OrganizationPolicies struct {
 	} `graphql:"organization(login: $login)"`
 }
 
-func getOrganizationPolicies(org string) (*OrganizationPolicies, error) {
+// OrganizationRESTPolicies is a struct that contains the REST response for an organization
+
+// type OrganizationRESTPolicies struct {
+
+type OrganizationRESTPolicies struct {
+	Has_organization_projects                bool
+	Has_repository_projects                  bool
+	Default_repository_permission            string
+	Members_can_create_repositories          bool
+	Two_factor_requirement_enabled           bool
+	Members_allowed_repository_creation_type string
+	Members_can_create_public_repositories   bool
+	Members_can_create_private_repositories  bool
+	Members_can_create_internal_repositories bool
+	Members_can_create_pages                 bool
+	Members_can_fork_private_repositories    bool
+}
+
+func getOrganizationRESTPolicies(org string) (*OrganizationRESTPolicies, error) {
+	client, err := gh.RESTClient(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	response := new(OrganizationRESTPolicies)
+
+	err = client.Get(fmt.Sprintf("orgs/%s", org), &response)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(response)
+	return response, err
+}
+
+func getOrganizationGQLPolicies(org string) (*OrganizationGQLPolicies, error) {
 	fmt.Println("Organization: ", org)
 
 	client, err := gh.GQLClient(nil)
@@ -235,7 +341,7 @@ func getOrganizationPolicies(org string) (*OrganizationPolicies, error) {
 		log.Fatal(err)
 	}
 
-	query := new(OrganizationPolicies)
+	query := new(OrganizationGQLPolicies)
 
 	variables := map[string]interface{}{
 		"login": graphql.String(org),
@@ -346,7 +452,7 @@ type TwoFactorAuthenticationSetting struct {
 	Status   string
 }
 
-func comparePolicies(org *OrganizationPolicies, ent *EnterprisePolicies) *Compare {
+func comparePolicies(org *OrganizationGQLPolicies, ent *EnterprisePolicies) *Compare {
 	fmt.Println("Comparing Organization and Enterprise Policies")
 
 	compare := new(Compare)
@@ -368,7 +474,7 @@ func comparePolicies(org *OrganizationPolicies, ent *EnterprisePolicies) *Compar
 	return compare
 }
 
-func comparePrivateRepositoryForking(compare *Compare, org *OrganizationPolicies, ent *EnterprisePolicies) *Compare {
+func comparePrivateRepositoryForking(compare *Compare, org *OrganizationGQLPolicies, ent *EnterprisePolicies) *Compare {
 	fmt.Println("Comparing Private Repository Forking Policies")
 
 	if ent.Enterprise.OwnerInfo.AllowPrivateRepositoryForkingSetting == "NO_POLICY" {
@@ -380,7 +486,7 @@ func comparePrivateRepositoryForking(compare *Compare, org *OrganizationPolicies
 	return compare
 }
 
-func compareTwoFactorAuthentication(compare *Compare, org *OrganizationPolicies, ent *EnterprisePolicies) *Compare {
+func compareTwoFactorAuthentication(compare *Compare, org *OrganizationGQLPolicies, ent *EnterprisePolicies) *Compare {
 	fmt.Println("Comparing Two Factor Authentication Policies")
 
 	if ent.Enterprise.OwnerInfo.TwoFactorRequiredSetting == "NO_POLICY" {
@@ -407,7 +513,7 @@ func compareTwoFactorAuthentication(compare *Compare, org *OrganizationPolicies,
 	return compare
 }
 
-func compareSamlIdentityProvider(compare *Compare, org *OrganizationPolicies, ent *EnterprisePolicies) *Compare {
+func compareSamlIdentityProvider(compare *Compare, org *OrganizationGQLPolicies, ent *EnterprisePolicies) *Compare {
 	fmt.Println("Comparing SAML Identity Provider Policies")
 
 	if ent.Enterprise.OwnerInfo.SamlIdentityProvider.Id == "" {
@@ -437,7 +543,7 @@ func compareSamlIdentityProvider(compare *Compare, org *OrganizationPolicies, en
 	return compare
 }
 
-// func createCSV(org *OrganizationPolicies, ent *getEnterprisePolicies, compare *Compare) {
+// func createCSV(org *OrganizationGQLPolicies, ent *getEnterprisePolicies, compare *Compare) {
 // 	fmt.Println("Creating CSV")
 // 	csvWriter := createCSVFile()
 
