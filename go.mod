@@ -6,6 +6,8 @@ require github.com/cli/go-gh v1.0.0
 
 require github.com/jung-kurt/gofpdf v1.16.2
 
+require github.com/muesli/reflow v0.3.0 // indirect
+
 require (
 	github.com/cli/safeexec v1.0.0 // indirect
 	github.com/cli/shurcooL-graphql v0.0.2

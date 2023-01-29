@@ -4,48 +4,211 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 
 	"github.com/cli/go-gh"
+	"github.com/cli/go-gh/pkg/repository"
+	"github.com/cli/go-gh/pkg/tableprinter"
 	graphql "github.com/cli/shurcooL-graphql"
 )
 
 func main() {
+	if err := cli(); err != nil {
+		fmt.Fprintf(os.Stderr, "gh-org-transfer-audit failed: %s\n", err.Error())
+		os.Exit(1)
+	}
+}
+
+func cli() error {
 	var organization string
 	var enterprise string
+	var repo repository.Repository
+	var err error
+	// isTerminal := term.IsTerminal(os.Stdout)
 
-	flag.StringVar(&organization, "organization", "dylanrinkertestorg3", "organization")
-	flag.StringVar(&enterprise, "enterprise", "mr-magoriums-wunderbar-emporium", "enterprise")
+	flag.StringVar(&organization, "organization", "", "organization")
+	flag.StringVar(&enterprise, "enterprise", "", "enterprise")
 
 	flag.Parse()
 
-	// orgQuery(organization)
-	entQuery, error := enterpriseQuery(enterprise)
+	fmt.Println("Organization:", organization)
+	fmt.Println("Enterprise:", enterprise)
 
-	if error != nil {
-		log.Fatal(error)
+	// if organization and enterprise are not provided, get the current repository
+	if organization == "" && enterprise == "" {
+		fmt.Println("No organization or enterprise provided. Retrieving policies current organization of current repository.")
+		repo, err = gh.CurrentRepository()
+
+		if err != nil {
+			return fmt.Errorf("could not determine what org to use: %w", err)
+		}
+
+		organization = repo.Owner()
+
+		orgPolicies, err := getOrganizationPolicies(organization)
+
+		if err != nil {
+			return fmt.Errorf("the owner of the current repository is not an organization %w", err)
+		}
+
+		fmt.Println(orgPolicies.Organization)
+
 	}
 
-	fmt.Println(entQuery.Enterprise.OwnerInfo)
+	var entPolicies *EnterprisePolicies
+	var error error
 
-	orgQuery, error := organinizationQuery(organization)
+	// if only enterprise is provided, get the enterprise policies
+	if organization == "" && enterprise != "" {
+		fmt.Println("No organization provided. Retrieving policies for enterprise.")
+		entPolicies, error = getEnterprisePolicies(enterprise)
 
-	if error != nil {
-		log.Fatal(error)
+		if error != nil {
+			log.Fatal(error)
+		}
+
+		fmt.Println(entPolicies.Enterprise)
+
+		// have to actually get isTerminal
+		tp := tableprinter.New(os.Stdout, true, 100)
+
+		tp.AddField("Policy Name")
+		tp.AddField("Policy Value")
+		tp.EndRow()
+		tp.AddField("AllowPrivateRepositoryForkingSettingPolicyValue")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.AllowPrivateRepositoryForkingSetting)
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.AllowPrivateRepositoryForkingSettingPolicyValue)
+		tp.EndRow()
+		tp.AddField("DefaultRepositoryPermissionSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.DefaultRepositoryPermissionSetting)
+		tp.EndRow()
+		tp.AddField("IpAllowListEnabledSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.IpAllowListEnabledSetting)
+		tp.EndRow()
+		tp.AddField("IpAllowListEntries")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.IpAllowListEntries.Edges.Node.AllowListValue)
+		tp.EndRow()
+		tp.AddField("IpAllowListForInstalledAppsEnabledSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.IpAllowListForInstalledAppsEnabledSetting)
+		tp.EndRow()
+		tp.AddField("MembersCanChangeRepositoryVisibilitySetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanChangeRepositoryVisibilitySetting)
+		tp.EndRow()
+		tp.AddField("MembersCanCreateRepositoriesSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanCreateRepositoriesSetting)
+		tp.EndRow()
+		tp.AddField("MembersCanDeleteIssuesSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanDeleteIssuesSetting)
+		tp.EndRow()
+		tp.AddField("MembersCanDeleteRepositoriesSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanDeleteRepositoriesSetting)
+		tp.EndRow()
+		tp.AddField("MembersCanInviteCollaboratorsSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanInviteCollaboratorsSetting)
+		tp.EndRow()
+		tp.AddField("MembersCanMakePurchasesSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanMakePurchasesSetting)
+		tp.EndRow()
+		tp.AddField("MembersCanUpdateProtectedBranchesSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanUpdateProtectedBranchesSetting)
+		tp.EndRow()
+		tp.AddField("MembersCanViewDependencyInsightsSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.MembersCanViewDependencyInsightsSetting)
+		tp.EndRow()
+		tp.AddField("OrganizationProjectsSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.OrganizationProjectsSetting)
+		tp.EndRow()
+		tp.AddField("RepositoryProjectsSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.RepositoryProjectsSetting)
+		tp.EndRow()
+		tp.AddField("SamlIdentityProvider")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.SamlIdentityProvider.Id)
+		tp.EndRow()
+		tp.AddField("TeamDiscussionsSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.TeamDiscussionsSetting)
+		tp.EndRow()
+		tp.AddField("TwoFactorRequiredSetting")
+		tp.AddField(entPolicies.Enterprise.OwnerInfo.TwoFactorRequiredSetting)
+		tp.EndRow()
+
+		tp.Render()
+
 	}
 
-	fmt.Println(orgQuery.Organization)
+	var orgPolicies *OrganizationPolicies
 
-	comparison := compare(orgQuery, entQuery)
+	// if only enterprise is provided, get the enterprise policies
+	if organization != "" && enterprise == "" {
+		fmt.Println("No enterprise provided. Retrieving policies for organization.")
+		// Get organization policies
+		orgPolicies, error = getOrganizationPolicies(organization)
 
-	fmt.Println(comparison)
+		if error != nil {
+			log.Fatal(error)
+		}
 
-	// createCSV(orgQuery, entQuery, compare(orgQuery, entQuery))
+		// have to actually get isTerminal
+		tp := tableprinter.New(os.Stdout, true, 100)
 
-	CreatePDF()
+		tp.AddField("Policy Name")
+		tp.AddField("Policy Value")
+		tp.EndRow()
+		tp.AddField("IpAllowListEnabledSetting")
+		tp.AddField(orgPolicies.Organization.IpAllowListEnabledSetting, tableprinter.WithColor(red))
+		tp.EndRow()
+		tp.AddField("IpAllowListEntries")
+		tp.AddField(orgPolicies.Organization.IpAllowListEntries.Edges.Node.AllowListValue, tableprinter.WithColor(red))
+		tp.EndRow()
+		tp.AddField("IpAllowListForInstalledAppsEnabledSetting")
+		tp.AddField(orgPolicies.Organization.IpAllowListForInstalledAppsEnabledSetting)
+		tp.EndRow()
+		tp.AddField("MembersCanForkPrivateRepositories")
+		tp.AddField(strconv.FormatBool(orgPolicies.Organization.MembersCanForkPrivateRepositories))
+		tp.EndRow()
+		tp.AddField("RequiresTwoFactorAuthentication")
+		tp.AddField(strconv.FormatBool(orgPolicies.Organization.RequiresTwoFactorAuthentication))
+		tp.EndRow()
+		tp.AddField("SamlIdentityProvider")
+		tp.AddField(orgPolicies.Organization.SamlIdentityProvider.Id)
+		tp.EndRow()
 
+		tp.Render()
+
+	}
+
+	// if both are provided, get the both policies and compare them
+	if organization != "" && enterprise != "" {
+		fmt.Println("Both enterprise and organization provided. Retrieving policies for both and comparing them.")
+		// Get organization policies
+		orgPolicies, error = getOrganizationPolicies(organization)
+
+		if error != nil {
+			log.Fatal(error)
+		}
+
+		// Get enterprise policies
+		entPolicies, error = getEnterprisePolicies(enterprise)
+
+		if error != nil {
+			log.Fatal(error)
+		}
+
+		comparison := comparePolicies(orgPolicies, entPolicies)
+
+		fmt.Println(comparison)
+	}
+	// createCSV(orgPolicies, entPolicies, comparePolicies(orgPolicies, entPolicies))
+
+	return nil
 }
 
-type OrganinizationQuery struct {
+// function that takes in a string and returns that string color red
+func red(s string) string {
+	return fmt.Sprintf("\033[31m%s\033[0m", s)
+}
+
+type OrganizationPolicies struct {
 	Organization struct {
 		IpAllowListEnabledSetting string
 		IpAllowListEntries        struct {
@@ -64,7 +227,7 @@ type OrganinizationQuery struct {
 	} `graphql:"organization(login: $login)"`
 }
 
-func organinizationQuery(org string) (*OrganinizationQuery, error) {
+func getOrganizationPolicies(org string) (*OrganizationPolicies, error) {
 	fmt.Println("Organization: ", org)
 
 	client, err := gh.GQLClient(nil)
@@ -72,7 +235,7 @@ func organinizationQuery(org string) (*OrganinizationQuery, error) {
 		log.Fatal(err)
 	}
 
-	query := new(OrganinizationQuery)
+	query := new(OrganizationPolicies)
 
 	variables := map[string]interface{}{
 		"login": graphql.String(org),
@@ -83,14 +246,13 @@ func organinizationQuery(org string) (*OrganinizationQuery, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(query)
 
 	return query, err
 }
 
-// create a type of EnterpriseQuery
+// create a type of getEnterprisePolicies
 
-type EnterpriseQuery struct {
+type EnterprisePolicies struct {
 	Enterprise struct {
 		OwnerInfo struct {
 			AllowPrivateRepositoryForkingSetting            string
@@ -125,7 +287,7 @@ type EnterpriseQuery struct {
 	} `graphql:"enterprise(slug: $slug)"`
 }
 
-func enterpriseQuery(ent string) (*EnterpriseQuery, error) {
+func getEnterprisePolicies(ent string) (*EnterprisePolicies, error) {
 	fmt.Println("Enterprise: ", ent)
 
 	client, err := gh.GQLClient(nil)
@@ -133,7 +295,7 @@ func enterpriseQuery(ent string) (*EnterpriseQuery, error) {
 		log.Fatal(err)
 	}
 
-	query := new(EnterpriseQuery)
+	query := new(EnterprisePolicies)
 
 	variables := map[string]interface{}{
 		"slug":  graphql.String(ent),
@@ -184,29 +346,29 @@ type TwoFactorAuthenticationSetting struct {
 	Status   string
 }
 
-func compare(org *OrganinizationQuery, ent *EnterpriseQuery) *Compare {
+func comparePolicies(org *OrganizationPolicies, ent *EnterprisePolicies) *Compare {
 	fmt.Println("Comparing Organization and Enterprise Policies")
 
 	compare := new(Compare)
 
-	fmt.Println(`Compare:`, compare)
+	// fmt.Println(`Compare:`, compare)
 
 	compare = comparePrivateRepositoryForking(compare, org, ent)
 
-	fmt.Println(`Compare 1:`, compare)
-
-	compare = compareSamlIdentityProvider(compare, org, ent)
-
-	fmt.Println(`Compare 2:`, compare)
+	// fmt.Println(`Compare 1:`, compare)
 
 	compare = compareTwoFactorAuthentication(compare, org, ent)
 
-	fmt.Println(`Compare 3:`, compare)
+	// fmt.Println(`Compare 2:`, compare)
+
+	compare = compareSamlIdentityProvider(compare, org, ent)
+
+	// fmt.Println(`Compare 3:`, compare)
 
 	return compare
 }
 
-func comparePrivateRepositoryForking(compare *Compare, org *OrganinizationQuery, ent *EnterpriseQuery) *Compare {
+func comparePrivateRepositoryForking(compare *Compare, org *OrganizationPolicies, ent *EnterprisePolicies) *Compare {
 	fmt.Println("Comparing Private Repository Forking Policies")
 
 	if ent.Enterprise.OwnerInfo.AllowPrivateRepositoryForkingSetting == "NO_POLICY" {
@@ -218,7 +380,7 @@ func comparePrivateRepositoryForking(compare *Compare, org *OrganinizationQuery,
 	return compare
 }
 
-func compareTwoFactorAuthentication(compare *Compare, org *OrganinizationQuery, ent *EnterpriseQuery) *Compare {
+func compareTwoFactorAuthentication(compare *Compare, org *OrganizationPolicies, ent *EnterprisePolicies) *Compare {
 	fmt.Println("Comparing Two Factor Authentication Policies")
 
 	if ent.Enterprise.OwnerInfo.TwoFactorRequiredSetting == "NO_POLICY" {
@@ -245,7 +407,7 @@ func compareTwoFactorAuthentication(compare *Compare, org *OrganinizationQuery, 
 	return compare
 }
 
-func compareSamlIdentityProvider(compare *Compare, org *OrganinizationQuery, ent *EnterpriseQuery) *Compare {
+func compareSamlIdentityProvider(compare *Compare, org *OrganizationPolicies, ent *EnterprisePolicies) *Compare {
 	fmt.Println("Comparing SAML Identity Provider Policies")
 
 	if ent.Enterprise.OwnerInfo.SamlIdentityProvider.Id == "" {
@@ -263,7 +425,7 @@ func compareSamlIdentityProvider(compare *Compare, org *OrganinizationQuery, ent
 
 		if org.Organization.SamlIdentityProvider.Id != "" {
 			if org.Organization.SamlIdentityProvider.Id != ent.Enterprise.OwnerInfo.SamlIdentityProvider.Id {
-				compare.TwoFactorAuthenticationSetting.Comment = "SAML Single Sign On is enabled at the Enterprise level and the Organization level. The Enterprise SAML Single Sign On provider will override the Organization's SAML Single Sign On."
+				compare.TwoFactorAuthenticationSetting.Comment = "SAML Single Sign On is enabled at the Enterprise level and the Organization level. The Enterprise SAML Single Sign On provider will apply to the Organization."
 				compare.TwoFactorAuthenticationSetting.Status = "✗"
 				return compare
 			}
@@ -275,7 +437,7 @@ func compareSamlIdentityProvider(compare *Compare, org *OrganinizationQuery, ent
 	return compare
 }
 
-// func createCSV(org *OrganinizationQuery, ent *EnterpriseQuery, compare *Compare) {
+// func createCSV(org *OrganizationPolicies, ent *getEnterprisePolicies, compare *Compare) {
 // 	fmt.Println("Creating CSV")
 // 	csvWriter := createCSVFile()
 

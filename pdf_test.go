@@ -142,11 +142,11 @@ func TestExampleFpdf_CellFormat_tables(t *testing.T) {
 }
 
 // strDelimit converts 'ABCDEFG' to, for example, 'A,BCD,EFG'
-func strDelimit(str string, sepstr string, sepcount int) string {
-	pos := len(str) - sepcount
-	for pos > 0 {
-		str = str[:pos] + sepstr + str[pos:]
-		pos = pos - sepcount
-	}
-	return str
-}
+// func strDelimit(str string, sepstr string, sepcount int) string {
+// 	pos := len(str) - sepcount
+// 	for pos > 0 {
+// 		str = str[:pos] + sepstr + str[pos:]
+// 		pos = pos - sepcount
+// 	}
+// 	return str
+// }
